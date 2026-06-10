@@ -20,7 +20,9 @@ const extensionPath = path.join(__dirname); // The root directory contains manif
   const context = await chromium.launchPersistentContext(userDataDir, {
     headless: false, // Chrome extensions only work reliably in headful mode for tabCapture
     channel: 'chrome', // CRITICAL: Use the real Google Chrome to ensure Widevine DRM is included
+    ignoreDefaultArgs: ['--disable-component-update'], // CRITICAL: Playwright blocks component updates by default, which breaks Widevine!
     args: [
+      `--enable-widevine`,
       `--disable-extensions-except=${extensionPath}`,
       `--load-extension=${extensionPath}`,
       `--disable-gpu`, // Critical for bypassing Widevine black screen
