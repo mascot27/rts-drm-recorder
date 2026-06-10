@@ -23,6 +23,7 @@ const extensionPath = path.join(__dirname); // The root directory contains manif
     ignoreDefaultArgs: ['--disable-component-update'], // CRITICAL: Playwright blocks component updates by default, which breaks Widevine!
     args: [
       `--enable-widevine`,
+      `--mute-audio`, // CRITICAL: Mutes the browser so it doesn't play out of Mac speakers, but tabCapture STILL records it!
       `--disable-extensions-except=${extensionPath}`,
       `--load-extension=${extensionPath}`,
       `--disable-gpu`, // Critical for bypassing Widevine black screen
