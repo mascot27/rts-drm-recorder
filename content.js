@@ -1,0 +1,20 @@
+// Listen for commands from Playwright
+window.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'PLAYWRIGHT_START_CAPTURE') {
+    chrome.runtime.sendMessage({ type: 'CLI_START_CAPTURE' });
+  } else if (event.data && event.data.type === 'PLAYWRIGHT_STOP_CAPTURE') {
+    chrome.runtime.sendMessage({ type: 'CLI_STOP_CAPTURE' });
+  }
+});
+
+// Listen for download triggers from background.js
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type === 'TRIGGER_DOWNLOAD') {
+    const a = document.createElement('a');
+    a.href = msg.url;
+    a.download = 'RTS_Recording.webm';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+});

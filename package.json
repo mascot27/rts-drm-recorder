@@ -1,0 +1,13 @@
+{
+  "name": "rts-drm-recorder-cli",
+  "version": "1.0.0",
+  "description": "CLI Downloader using Playwright and Chrome Extension",
+  "main": "download.js",
+  "scripts": {
+    "start": "node download.js"
+  },
+  "dependencies": {
+    "cli-progress": "^3.12.0",
+    "playwright": "^1.42.1"
+  }
+}

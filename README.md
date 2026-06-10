@@ -22,7 +22,7 @@ If you skip this step, Widevine DRM will block the capture and your recording wi
 3. Click the **Load unpacked** button.
 4. Select the root folder of this repository.
 
-### 3. Record a Movie
+### 3. Record a Movie (Manual Mode)
 1. Navigate to the video you want to record.
 2. Start playing the video to ensure the stream loads.
 3. Click the **"RTS DRM Recorder" extension icon** in your Chrome toolbar.
@@ -30,5 +30,21 @@ If you skip this step, Widevine DRM will block the capture and your recording wi
 5. Let the movie play through. You can move the Chrome window to another virtual desktop, but **do not minimize the window**, as macOS will pause video rendering for minimized windows.
 6. When finished, click the extension icon again. The file `RTS_Recording.webm` will automatically download.
 
+### 4. Record a Movie (Automated CLI Mode)
+If you prefer not to click manually, you can use the automated CLI script built with Node.js and Playwright. It will automatically launch Chrome, inject the extension, click play, wait for the exact duration of the movie, and save the final file.
+
+1. Install dependencies:
+   ```bash
+   npm install
+   npx playwright install chromium
+   ```
+2. Run the script with your target URL:
+   ```bash
+   node download.js "https://www.rts.ch/play/tv/film/video/007-spectre?urn=urn:rts:video:..."
+   ```
+3. A progress bar will show the remaining time. Leave the automated browser window open on a separate desktop.
+
 ## Technical Details (Manifest V3)
 With Manifest V3, background Service Workers cannot use the `MediaRecorder` API. To get around this, the extension's background worker intercepts the active tab's `streamId` and spawns a hidden `offscreen.html` document. This offscreen document receives the stream, records it, and passes the resulting Blob URL back to the Service Worker for download.
+
+For the CLI automation, Playwright injects a `content.js` script that acts as a bridge, allowing Playwright to send programmatic "Start" and "Stop" signals directly to the extension's background worker!
