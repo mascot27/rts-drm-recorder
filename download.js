@@ -14,8 +14,10 @@ const extensionPath = path.join(__dirname); // The root directory contains manif
 (async () => {
   console.log(`Starting automated browser...`);
   
-  // Launch Playwright with the extension and GPU disabled
-  const context = await chromium.launchPersistentContext('', {
+  // Launch Playwright with a persistent data directory so Widevine has time to initialize
+  // If we use an empty string (''), Chrome creates a temporary profile and Widevine fails to load in time.
+  const userDataDir = path.join(__dirname, '.chrome-profile');
+  const context = await chromium.launchPersistentContext(userDataDir, {
     headless: false, // Chrome extensions only work reliably in headful mode for tabCapture
     channel: 'chrome', // CRITICAL: Use the real Google Chrome to ensure Widevine DRM is included
     args: [
