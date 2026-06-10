@@ -71,24 +71,32 @@ const extensionPath = path.join(__dirname); // The root directory contains manif
     window.postMessage({ type: 'PLAYWRIGHT_START_CAPTURE' }, '*');
   });
 
+  const durationSec = Math.ceil(duration);
   // Setup Progress Bar
-  const bar = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
-  bar.start(durationMs, 0);
+  const bar = new cliProgress.SingleBar({
+    format: 'Recording [{bar}] {percentage}% | ETA: {eta_formatted} | Elapsed: {duration_formatted}',
+    formatTime: (t, options, roundToMultipleOf) => {
+      const h = Math.floor(t / 3600);
+      const m = Math.floor((t % 3600) / 60);
+      const s = Math.floor(t % 60);
+      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+  }, cliProgress.Presets.shades_classic);
+  bar.start(durationSec, 0);
 
   // Wait for the duration while updating progress bar
-  const updateInterval = 1000;
-  let elapsed = 0;
+  let elapsedSec = 0;
   const timer = setInterval(() => {
-    elapsed += updateInterval;
-    if (elapsed <= durationMs) {
-      bar.update(elapsed);
+    elapsedSec += 1;
+    if (elapsedSec <= durationSec) {
+      bar.update(elapsedSec);
     }
-  }, updateInterval);
+  }, 1000);
 
   await page.waitForTimeout(durationMs + 5000); // Wait full duration + 5 seconds buffer
 
   clearInterval(timer);
-  bar.update(durationMs);
+  bar.update(durationSec);
   bar.stop();
 
   console.log('Movie finished. Stopping capture and waiting for download to process...');
