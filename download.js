@@ -17,6 +17,7 @@ const extensionPath = path.join(__dirname); // The root directory contains manif
   // Launch Playwright with the extension and GPU disabled
   const context = await chromium.launchPersistentContext('', {
     headless: false, // Chrome extensions only work reliably in headful mode for tabCapture
+    channel: 'chrome', // CRITICAL: Use the real Google Chrome to ensure Widevine DRM is included
     args: [
       `--disable-extensions-except=${extensionPath}`,
       `--load-extension=${extensionPath}`,
