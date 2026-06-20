@@ -85,8 +85,8 @@ Quick start:
         node download.js --test "https://www.rts.ch/play/..."   (20s check)
 
 A desktop notification appears when the whole batch is finished.
-Recordings are saved as .webm files in this folder by default
-(use --out <dir> to change that). See README.md for all options.
+Recordings are saved as .webm files in your Downloads folder by
+default (use --out <dir> to change that). See README.md for all options.
 `;
 
 function main() {
