@@ -72,7 +72,7 @@ Each recording is named after the video's page title (or the custom name from th
 | Option | Description |
 | --- | --- |
 | `-f, --file <path>` | Read targets from a newline-delimited file. |
-| `-o, --out <dir>` | Directory to save recordings into (default: current dir). |
+| `-o, --out <dir>` | Directory to save recordings into (default: your **Downloads** folder). |
 | `-t, --test [sec]` | Record only the first N seconds (default 20) of each video — a quick way to verify the capture/download chain without waiting for a full movie. |
 | `--no-sound` | Show the completion notification silently. |
 | `--no-notify` | Disable the completion notification entirely. |

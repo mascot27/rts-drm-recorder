@@ -1,6 +1,7 @@
 const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const cliProgress = require('cli-progress');
 const { notify } = require('./notify');
 
@@ -15,7 +16,7 @@ Options:
                       lines starting with "#" are ignored. An optional custom
                       output name can follow the URL after a "|":
                           https://www.rts.ch/play/...  |  My Movie
-  -o, --out <dir>     Directory to save recordings into (default: current dir).
+  -o, --out <dir>     Directory to save recordings into (default: Downloads).
   -t, --test [sec]    Record only the first N seconds of each video (default 20)
                       to quickly verify the whole capture/download chain works.
       --no-sound      Show the completion notification without a sound.
@@ -30,9 +31,19 @@ unless overridden in the --file list.`;
  * Parse argv into a list of targets and options.
  * @returns {{ targets: {url: string, name: string|null}[], outDir: string, sound: boolean, notifyOnDone: boolean }}
  */
+/** The OS "Downloads" folder if it exists, otherwise the current directory. */
+function defaultOutDir() {
+  const home = os.homedir();
+  if (home) {
+    const downloads = path.join(home, 'Downloads');
+    if (fs.existsSync(downloads)) return downloads;
+  }
+  return process.cwd();
+}
+
 function parseArgs(argv) {
   const targets = [];
-  let outDir = process.cwd();
+  let outDir = defaultOutDir();
   let sound = true;
   let notifyOnDone = true;
   let testSeconds = null;
@@ -342,7 +353,7 @@ async function main() {
   process.exit(failed.length > 0 ? 1 : 0);
 }
 
-module.exports = { parseArgs, readUrlList, sanitizeFilename, uniquePath, formatHMS };
+module.exports = { parseArgs, readUrlList, sanitizeFilename, uniquePath, formatHMS, defaultOutDir };
 
 if (require.main === module) {
   main();
