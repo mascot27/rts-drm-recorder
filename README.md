@@ -33,23 +33,26 @@ If you skip this step, Widevine DRM will block the capture and your recording wi
 ### 4. Record a Movie (Automated CLI Mode)
 
 #### Pre-built bundles (Windows / Apple Silicon)
-The easiest way to get the CLI is from the [Releases page](../../releases): download `rts-drm-recorder-windows-x64.zip` or `rts-drm-recorder-macos-arm64.zip`, unzip it, and double-click `run.cmd` (Windows) or `run.command` (macOS). These bundles include the extension, the CLI, and its dependencies — you only need **Google Chrome** and **Node.js** installed, plus hardware acceleration turned off (see step 1). See `USAGE.txt` inside the bundle for a quick start.
+The easiest way to get the CLI is from the [Releases page](../../releases): download `rts-drm-recorder-windows-x64.zip` or `rts-drm-recorder-macos-arm64.zip`, unzip it, and double-click `run.cmd` (Windows) or `run.command` (macOS). These bundles include the CLI and its dependencies — you only need **Google Chrome** and **Node.js** installed. The CLI handles the rendering workaround itself (`--disable-gpu`), so you don't need to change Chrome's hardware-acceleration setting for CLI mode. See `USAGE.txt` inside the bundle for a quick start.
 
 > Maintainers: a release is built automatically when a `vX.Y.Z` tag is pushed (see [.github/workflows/release.yml](.github/workflows/release.yml)).
 
 #### From source
-If you prefer not to click manually, you can use the automated CLI script built with Node.js and Playwright. It will automatically launch Chrome, inject the extension, click play, wait for the exact duration of the movie, and save the final file.
+The CLI launches your real Google Chrome with Playwright, plays the video, captures the tab with `getDisplayMedia` (auto-accepted), and streams the result to a `.webm` file. It does **not** use the extension — Chrome 137+ no longer allows loading unpacked extensions from the command line, so the CLI records the tab directly instead.
 
-1. Install dependencies:
+1. Install dependencies (you need Google **Chrome** installed too):
    ```bash
    npm install
-   npx playwright install chromium
    ```
 2. Run the script with your target URL:
    ```bash
    node download.js "https://www.rts.ch/play/tv/film/video/007-spectre?urn=urn:rts:video:..."
    ```
-3. A progress bar will show the remaining time. Leave the automated browser window open on a separate desktop.
+3. A progress bar shows the remaining time. Leave the automated browser window open on a separate desktop (do not minimize it).
+
+**First-run notes**
+- The first launch uses a fresh `.chrome-profile`; **accept the RTS cookie banner once** (and let Widevine initialize) so the player loads. The profile is reused afterwards.
+- While recording, the CLI **mutes your system output** so the movie doesn't play out loud — the captured audio is unaffected. Pass `--no-mute` to keep it audible (or if you're not on macOS).
 
 ### 5. Record Several Movies in a Batch
 You can pass multiple URLs, or a file listing them, and they will be recorded one after another in a single browser session. Each video shows its own progress bar and an `[i/N]` counter, and a **desktop notification** (with sound) fires when the whole batch is finished.
@@ -74,6 +77,7 @@ Each recording is named after the video's page title (or the custom name from th
 | `-f, --file <path>` | Read targets from a newline-delimited file. |
 | `-o, --out <dir>` | Directory to save recordings into (default: your **Downloads** folder). |
 | `-t, --test [sec]` | Record only the first N seconds (default 20) of each video — a quick way to verify the capture/download chain without waiting for a full movie. |
+| `--no-mute` | Keep system audio audible during recording (by default speakers are muted on macOS; capture is unaffected). |
 | `--no-sound` | Show the completion notification silently. |
 | `--no-notify` | Disable the completion notification entirely. |
 | `-h, --help` | Show usage. |
@@ -82,7 +86,12 @@ Each recording is named after the video's page title (or the custom name from th
 
 > The completion banner uses [`node-notifier`](https://github.com/mikaelbr/node-notifier), which works on macOS, Windows, and Linux out of the box.
 
-## Technical Details (Manifest V3)
-With Manifest V3, background Service Workers cannot use the `MediaRecorder` API. To get around this, the extension's background worker intercepts the active tab's `streamId` and spawns a hidden `offscreen.html` document. This offscreen document receives the stream, records it, and passes the resulting Blob URL back to the Service Worker for download.
+## Technical Details
 
-For the CLI automation, Playwright injects a `content.js` script that acts as a bridge, allowing Playwright to send programmatic "Start" and "Stop" signals directly to the extension's background worker!
+### CLI (Playwright)
+The CLI runs real Chrome via Playwright with `--disable-gpu` (software rendering, so Widevine L3 frames are capturable instead of black) and `--auto-accept-this-tab-capture`. It injects a small recorder into the page that calls `navigator.mediaDevices.getDisplayMedia({ video: true, audio: true, preferCurrentTab: true })` and feeds a `MediaRecorder`. To keep multi-hour recordings off the heap, each `MediaRecorder` chunk is streamed straight to the output file via a Playwright-exposed binding rather than buffered into one giant in-memory blob.
+
+The extension is **not** involved in CLI mode: Chrome 137+ refuses `--load-extension`, and `tabCapture` requires a user gesture (toolbar click) that automation can't supply.
+
+### Extension manual mode (Manifest V3)
+With Manifest V3, background Service Workers cannot use the `MediaRecorder` API. The extension's background worker intercepts the active tab's `streamId` and spawns a hidden `offscreen.html` document, which records the stream and passes the resulting Blob URL back to the Service Worker for download.

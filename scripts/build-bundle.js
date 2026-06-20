@@ -73,8 +73,9 @@ const USAGE_TXT = `RTS DRM Recorder
 Requirements on this machine:
   1. Google Chrome (the real Chrome — used for Widevine/DRM playback).
   2. Node.js 18+  (https://nodejs.org).
-  3. In Chrome, turn OFF "Use graphics acceleration when available"
-     (chrome://settings/system), otherwise recordings are black.
+
+On the FIRST run a Chrome window opens with a fresh profile — accept the
+RTS cookie banner once so the player loads; the profile is reused after.
 
 Quick start:
   - Put one video URL per line in a file named "urls.txt", then
@@ -83,6 +84,9 @@ Quick start:
         node download.js "https://www.rts.ch/play/..."
         node download.js --file urls.txt
         node download.js --test "https://www.rts.ch/play/..."   (20s check)
+
+While recording, system audio is muted on macOS so the movie doesn't play
+out loud (the captured audio is unaffected); pass --no-mute to keep it on.
 
 A desktop notification appears when the whole batch is finished.
 Recordings are saved as .webm files in your Downloads folder by
