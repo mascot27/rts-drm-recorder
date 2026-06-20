@@ -39,6 +39,10 @@ async function startCapture(streamId) {
       }
     });
 
+    // getUserMedia succeeded — distinguishes a capture-permission failure from a
+    // "stream obtained but no data flowing" problem.
+    report('stream-ok');
+
     // Record using default available codec (usually VP8/VP9) at a high bitrate
     recorder = new MediaRecorder(stream, {
       mimeType: 'video/webm',
