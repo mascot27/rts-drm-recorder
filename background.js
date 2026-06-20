@@ -93,6 +93,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       await chrome.storage.session.set({ recordingState: 'idle' });
       await chrome.action.setBadgeText({ text: '' });
     })();
+  } else if (msg.type === 'CLI_CLEANUP') {
+    // The CLI has finished saving the file; the offscreen doc can release the blob.
+    chrome.runtime.sendMessage({ type: 'CLEANUP_OFFSCREEN' }).catch(() => {});
+  }
+});
+
+// Relay capture status from the offscreen document out to the active tab, so the
+// CLI's content-script bridge can observe whether recording actually started.
+chrome.runtime.onMessage.addListener(async (msg) => {
+  if (msg.type === 'CAPTURE_STATUS') {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tabs.length > 0) {
+      chrome.tabs.sendMessage(tabs[0].id, { type: 'EXT_STATUS', status: msg.status, error: msg.error });
+    }
   }
 });
 

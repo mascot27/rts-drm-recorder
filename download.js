@@ -16,6 +16,8 @@ Options:
                       output name can follow the URL after a "|":
                           https://www.rts.ch/play/...  |  My Movie
   -o, --out <dir>     Directory to save recordings into (default: current dir).
+  -t, --test [sec]    Record only the first N seconds of each video (default 20)
+                      to quickly verify the whole capture/download chain works.
       --no-sound      Show the completion notification without a sound.
       --no-notify     Do not show a desktop notification when finished.
   -h, --help          Show this help.
@@ -33,6 +35,7 @@ function parseArgs(argv) {
   let outDir = process.cwd();
   let sound = true;
   let notifyOnDone = true;
+  let testSeconds = null;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -56,6 +59,19 @@ function parseArgs(argv) {
         outDir = path.resolve(dir);
         break;
       }
+      case '-t':
+      case '--test': {
+        // Optional numeric value; defaults to 20s if the next arg isn't a number.
+        const next = argv[i + 1];
+        if (next !== undefined && /^\d+$/.test(next)) {
+          testSeconds = parseInt(next, 10);
+          i++;
+        } else {
+          testSeconds = 20;
+        }
+        if (testSeconds < 1) throw new Error('--test requires a positive number of seconds');
+        break;
+      }
       case '--no-sound':
         sound = false;
         break;
@@ -68,7 +84,7 @@ function parseArgs(argv) {
     }
   }
 
-  return { targets, outDir, sound, notifyOnDone };
+  return { targets, outDir, sound, notifyOnDone, testSeconds };
 }
 
 /**
@@ -123,7 +139,7 @@ const formatHMS = (t) => {
  * Record a single target into outDir.
  * @returns {Promise<{ ok: boolean, file?: string, error?: string }>}
  */
-async function recordOne(page, target, index, total, outDir) {
+async function recordOne(page, target, index, total, outDir, testSeconds) {
   console.log(`\n${'═'.repeat(60)}`);
   console.log(`[${index}/${total}] ${target.url}`);
 
@@ -154,14 +170,15 @@ async function recordOne(page, target, index, total, outDir) {
   }
 
   const durationSec = Math.ceil(meta.duration);
-  const durationMs = durationSec * 1000;
+  const recordSec = testSeconds ? Math.min(testSeconds, durationSec) : durationSec;
+  const recordMs = recordSec * 1000;
   const base = sanitizeFilename(target.name || meta.title) || `RTS_Recording_${index}`;
   const finalPath = uniquePath(outDir, base);
 
-  console.log(`Video: "${base}" — ${Math.ceil(meta.duration / 60)} min`);
-
-  // Tell the extension (via the content-script bridge) to start capturing.
-  await page.evaluate(() => window.postMessage({ type: 'PLAYWRIGHT_START_CAPTURE' }, '*'));
+  console.log(
+    `Video: "${base}" — ${Math.ceil(meta.duration / 60)} min` +
+      (testSeconds ? ` (test mode: recording ${recordSec}s only)` : '')
+  );
 
   // Send STOP at most once, but guarantee it runs even on a mid-recording
   // failure — otherwise a still-running recorder corrupts the next video.
@@ -176,6 +193,37 @@ async function recordOne(page, target, index, total, outDir) {
     }
   };
 
+  // Start listening for the extension's capture-status relay BEFORE starting, so
+  // the 'active'/'error' signal can't be missed.
+  await page.evaluate(() => {
+    window.__rtsStatuses = [];
+    window.addEventListener('message', (e) => {
+      if (e.data && e.data.type === 'EXT_STATUS') window.__rtsStatuses.push(e.data);
+    });
+  });
+
+  // Tell the extension (via the content-script bridge) to start capturing.
+  await page.evaluate(() => window.postMessage({ type: 'PLAYWRIGHT_START_CAPTURE' }, '*'));
+
+  // Fail fast: confirm the recorder actually started rather than discovering a
+  // silent failure only after the whole movie duration has elapsed.
+  try {
+    await page.waitForFunction(() => window.__rtsStatuses.length > 0, { timeout: 20000 });
+  } catch (err) {
+    await stopCapture();
+    return {
+      ok: false,
+      error:
+        'Capture never started (no signal from the recorder within 20s). ' +
+        'Check that Chrome hardware acceleration is OFF and that Widevine is enabled.',
+    };
+  }
+  const firstStatus = await page.evaluate(() => window.__rtsStatuses[0]);
+  if (firstStatus.status === 'error') {
+    await stopCapture();
+    return { ok: false, error: `Recorder error: ${firstStatus.error || 'unknown'}` };
+  }
+
   const bar = new cliProgress.SingleBar(
     {
       format: 'Recording [{bar}] {percentage}% | ETA: {eta_formatted} | Elapsed: {duration_formatted}',
@@ -183,17 +231,17 @@ async function recordOne(page, target, index, total, outDir) {
     },
     cliProgress.Presets.shades_classic
   );
-  bar.start(durationSec, 0);
+  bar.start(recordSec, 0);
 
   let elapsedSec = 0;
   const timer = setInterval(() => {
     elapsedSec += 1;
-    if (elapsedSec <= durationSec) bar.update(elapsedSec);
+    if (elapsedSec <= recordSec) bar.update(elapsedSec);
   }, 1000);
 
   try {
-    await page.waitForTimeout(durationMs + 5000); // full duration + buffer
-    bar.update(durationSec);
+    await page.waitForTimeout(recordMs + 5000); // record window + buffer
+    bar.update(recordSec);
     bar.stop();
     clearInterval(timer);
 
@@ -202,6 +250,8 @@ async function recordOne(page, target, index, total, outDir) {
     await stopCapture();
     const download = await downloadPromise;
     await download.saveAs(finalPath);
+    // The file is on disk — let the offscreen doc release the blob now.
+    await page.evaluate(() => window.postMessage({ type: 'PLAYWRIGHT_CLEANUP' }, '*'));
     console.log(`✅ Saved: ${finalPath}`);
     return { ok: true, file: finalPath };
   } catch (err) {
@@ -223,7 +273,7 @@ async function main() {
     process.exit(1);
   }
 
-  const { targets, outDir, sound, notifyOnDone } = options;
+  const { targets, outDir, sound, notifyOnDone, testSeconds } = options;
 
   if (targets.length === 0) {
     console.error('Error: no video URLs provided.\n');
@@ -258,7 +308,7 @@ async function main() {
   for (let i = 0; i < targets.length; i++) {
     const target = targets[i];
     try {
-      const result = await recordOne(page, target, i + 1, targets.length, outDir);
+      const result = await recordOne(page, target, i + 1, targets.length, outDir, testSeconds);
       results.push({ target, ...result });
       if (!result.ok) console.error(`❌ ${target.url} — ${result.error}`);
     } catch (err) {

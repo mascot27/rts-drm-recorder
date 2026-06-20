@@ -66,9 +66,12 @@ Each recording is named after the video's page title (or the custom name from th
 | --- | --- |
 | `-f, --file <path>` | Read targets from a newline-delimited file. |
 | `-o, --out <dir>` | Directory to save recordings into (default: current dir). |
+| `-t, --test [sec]` | Record only the first N seconds (default 20) of each video — a quick way to verify the capture/download chain without waiting for a full movie. |
 | `--no-sound` | Show the completion notification silently. |
 | `--no-notify` | Disable the completion notification entirely. |
 | `-h, --help` | Show usage. |
+
+> **Tip:** before kicking off a 2-hour recording, sanity-check your setup with `node download.js --test "<url>"`. The CLI also fails fast (within ~20s) with a clear message if the recorder never actually starts, instead of recording silence for the whole duration.
 
 > The completion banner uses [`node-notifier`](https://github.com/mikaelbr/node-notifier), which works on macOS, Windows, and Linux out of the box.
 
