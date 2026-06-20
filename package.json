@@ -4,10 +4,12 @@
   "description": "CLI Downloader using Playwright and Chrome Extension",
   "main": "download.js",
   "scripts": {
-    "start": "node download.js"
+    "start": "node download.js",
+    "lint": "node scripts/syntax-check.js"
   },
   "dependencies": {
     "cli-progress": "^3.12.0",
+    "node-notifier": "^10.0.1",
     "playwright": "^1.42.1"
   }
 }

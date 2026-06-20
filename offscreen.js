@@ -9,6 +9,10 @@ chrome.runtime.onMessage.addListener((msg) => {
   }
 });
 
+// Tell the service worker the listener above is live, so it can safely send
+// START_CAPTURE without racing this document's startup.
+chrome.runtime.sendMessage({ type: 'OFFSCREEN_READY' }).catch(() => {});
+
 async function startCapture(streamId) {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({

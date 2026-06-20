@@ -2,3 +2,12 @@
 node_modules/
 *.zip
 *.crx
+
+# Playwright's persistent Chrome profile (created at runtime)
+.chrome-profile/
+
+# Recorded output
+*.webm
+
+# Personal batch lists (keep urls.example.txt tracked)
+urls.txt
