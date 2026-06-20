@@ -3,7 +3,8 @@
   "name": "RTS DRM Recorder",
   "version": "1.0",
   "description": "Bypass DRM black screens by recording the active tab using tabCapture.",
-  "permissions": ["tabCapture", "offscreen", "storage", "downloads"],
+  "permissions": ["tabCapture", "offscreen", "storage", "downloads", "tabs", "activeTab"],
+  "host_permissions": ["<all_urls>"],
   "action": {},
   "background": {
     "service_worker": "background.js"
