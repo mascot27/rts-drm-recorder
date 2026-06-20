@@ -216,23 +216,34 @@ async function recordOne(page, target, index, total, outDir, testSeconds) {
   // Tell the extension (via the content-script bridge) to start capturing.
   await page.evaluate(() => window.postMessage({ type: 'PLAYWRIGHT_START_CAPTURE' }, '*'));
 
-  // Fail fast: confirm the recorder actually started rather than discovering a
-  // silent failure only after the whole movie duration has elapsed.
+  // Fail fast: wait for a terminal signal ('active' = recording confirmed, or
+  // 'error') rather than discovering a silent failure only after the whole movie
+  // duration has elapsed.
   try {
-    await page.waitForFunction(() => window.__rtsStatuses.length > 0, { timeout: 20000 });
+    await page.waitForFunction(
+      () => window.__rtsStatuses.some((s) => s.status === 'active' || s.status === 'error'),
+      { timeout: 20000 }
+    );
   } catch (err) {
     await stopCapture();
+    const seen = await page.evaluate(() => window.__rtsStatuses || []);
+    const trail = seen.length
+      ? ` Signals seen: ${seen.map((s) => s.status + (s.error ? ` (${s.error})` : '')).join(', ')}.`
+      : ' No signals received at all.';
     return {
       ok: false,
       error:
-        'Capture never started (no signal from the recorder within 20s). ' +
-        'Check that Chrome hardware acceleration is OFF and that Widevine is enabled.',
+        'Capture never started within 20s.' +
+        trail +
+        ' Check that Chrome hardware acceleration is OFF and that Widevine is enabled.',
     };
   }
-  const firstStatus = await page.evaluate(() => window.__rtsStatuses[0]);
-  if (firstStatus.status === 'error') {
+  const terminal = await page.evaluate(
+    () => window.__rtsStatuses.find((s) => s.status === 'active' || s.status === 'error')
+  );
+  if (terminal.status === 'error') {
     await stopCapture();
-    return { ok: false, error: `Recorder error: ${firstStatus.error || 'unknown'}` };
+    return { ok: false, error: `Recorder error: ${terminal.error || 'unknown'}` };
   }
 
   const bar = new cliProgress.SingleBar(

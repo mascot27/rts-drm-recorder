@@ -78,13 +78,21 @@ chrome.action.onClicked.addListener(async (tab) => {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'CLI_START_CAPTURE' && sender.tab) {
     (async () => {
-      await chrome.storage.session.set({ recordingState: 'starting' });
-      const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: sender.tab.id });
-      await setupOffscreenDocument('offscreen.html');
-      await chrome.runtime.sendMessage({ type: 'START_CAPTURE', streamId: streamId });
-      await chrome.storage.session.set({ recordingState: 'recording' });
-      await chrome.action.setBadgeText({ text: 'REC' });
-      await chrome.action.setBadgeBackgroundColor({ color: '#FF0000' });
+      try {
+        await chrome.storage.session.set({ recordingState: 'starting' });
+        const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: sender.tab.id });
+        await setupOffscreenDocument('offscreen.html');
+        await chrome.runtime.sendMessage({ type: 'START_CAPTURE', streamId: streamId });
+        await chrome.storage.session.set({ recordingState: 'recording' });
+        await chrome.action.setBadgeText({ text: 'REC' });
+        await chrome.action.setBadgeBackgroundColor({ color: '#FF0000' });
+      } catch (err) {
+        // Surface the real reason (e.g. getMediaStreamId activation errors)
+        // instead of letting the CLI time out with no clue.
+        await broadcastStatus('error', `start failed: ${(err && err.message) || String(err)}`);
+        await chrome.storage.session.set({ recordingState: 'idle' });
+        await chrome.action.setBadgeText({ text: 'ERR' });
+      }
     })();
   } else if (msg.type === 'CLI_STOP_CAPTURE') {
     (async () => {
@@ -99,14 +107,25 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 });
 
-// Relay capture status from the offscreen document out to the active tab, so the
-// CLI's content-script bridge can observe whether recording actually started.
-chrome.runtime.onMessage.addListener(async (msg) => {
-  if (msg.type === 'CAPTURE_STATUS') {
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tabs.length > 0) {
-      chrome.tabs.sendMessage(tabs[0].id, { type: 'EXT_STATUS', status: msg.status, error: msg.error });
+// Relay capture status out to every tab's content script, so the CLI's bridge
+// observes whether recording actually started. Broadcasting to all tabs avoids
+// depending on {active, currentWindow}, which can be empty in an automated window.
+async function broadcastStatus(status, error) {
+  try {
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+      if (tab.id != null) {
+        chrome.tabs.sendMessage(tab.id, { type: 'EXT_STATUS', status, error }).catch(() => {});
+      }
     }
+  } catch (err) {
+    // Best-effort diagnostics channel.
+  }
+}
+
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type === 'CAPTURE_STATUS') {
+    broadcastStatus(msg.status, msg.error);
   }
 });
 
