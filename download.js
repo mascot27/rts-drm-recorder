@@ -326,6 +326,14 @@ async function main() {
 
   const page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
 
+  // Surface the extension's content-script diagnostics (prefixed "RTSREC:").
+  // This channel is captured directly by Playwright and does not rely on the
+  // service worker being able to message back into the tab.
+  page.on('console', (msg) => {
+    const text = msg.text();
+    if (text.startsWith('RTSREC:')) console.log(`  [ext] ${text.slice('RTSREC:'.length).trim()}`);
+  });
+
   const results = [];
   for (let i = 0; i < targets.length; i++) {
     const target = targets[i];
