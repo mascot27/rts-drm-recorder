@@ -44,6 +44,37 @@ If you prefer not to click manually, you can use the automated CLI script built 
    ```
 3. A progress bar will show the remaining time. Leave the automated browser window open on a separate desktop.
 
+### 5. Record Several Movies in a Batch
+You can pass multiple URLs, or a file listing them, and they will be recorded one after another in a single browser session. Each video shows its own progress bar and an `[i/N]` counter, and a **desktop notification** (with sound) fires when the whole batch is finished.
+
+Pass URLs directly:
+```bash
+node download.js "https://www.rts.ch/play/...one" "https://www.rts.ch/play/...two"
+```
+
+Or list them in a file (one per line; blank lines and `#` comments are ignored, and an optional output name can follow a `|`):
+```bash
+cp urls.example.txt urls.txt   # then edit urls.txt
+node download.js --file urls.txt
+```
+
+Each recording is named after the video's page title (or the custom name from the list) and saved as a `.webm` file.
+
+**Options**
+
+| Option | Description |
+| --- | --- |
+| `-f, --file <path>` | Read targets from a newline-delimited file. |
+| `-o, --out <dir>` | Directory to save recordings into (default: current dir). |
+| `-t, --test [sec]` | Record only the first N seconds (default 20) of each video — a quick way to verify the capture/download chain without waiting for a full movie. |
+| `--no-sound` | Show the completion notification silently. |
+| `--no-notify` | Disable the completion notification entirely. |
+| `-h, --help` | Show usage. |
+
+> **Tip:** before kicking off a 2-hour recording, sanity-check your setup with `node download.js --test "<url>"`. The CLI also fails fast (within ~20s) with a clear message if the recorder never actually starts, instead of recording silence for the whole duration.
+
+> The completion banner uses [`node-notifier`](https://github.com/mikaelbr/node-notifier), which works on macOS, Windows, and Linux out of the box.
+
 ## Technical Details (Manifest V3)
 With Manifest V3, background Service Workers cannot use the `MediaRecorder` API. To get around this, the extension's background worker intercepts the active tab's `streamId` and spawns a hidden `offscreen.html` document. This offscreen document receives the stream, records it, and passes the resulting Blob URL back to the Service Worker for download.
 

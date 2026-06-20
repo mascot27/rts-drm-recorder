@@ -1,0 +1,5 @@
+# One video per line. Blank lines and lines starting with "#" are ignored.
+# Optionally override the output file name after a "|".
+#
+# https://www.rts.ch/play/tv/film/video/example?urn=urn:rts:video:1111111
+# https://www.rts.ch/play/tv/film/video/example?urn=urn:rts:video:2222222 | My Custom Name

@@ -1,3 +1,21 @@
+// Resolves once a freshly created offscreen document reports that its message
+// listener is live (see offscreen.js). createDocument() resolving does NOT
+// guarantee that, so without this handshake START_CAPTURE can be dispatched to a
+// document that isn't listening yet and is silently dropped.
+let resolveOffscreenReady = null;
+function offscreenReadySignal() {
+  return new Promise((resolve) => {
+    resolveOffscreenReady = resolve;
+  });
+}
+
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg && msg.type === 'OFFSCREEN_READY' && resolveOffscreenReady) {
+    resolveOffscreenReady();
+    resolveOffscreenReady = null;
+  }
+});
+
 async function setupOffscreenDocument(path) {
   const offscreenUrl = chrome.runtime.getURL(path);
   const existingContexts = await chrome.runtime.getContexts({
@@ -6,14 +24,18 @@ async function setupOffscreenDocument(path) {
   });
 
   if (existingContexts.length > 0) {
-    return;
+    return; // already created and listening
   }
 
+  // Arm the readiness wait BEFORE creating the document so the signal can't be missed.
+  const ready = offscreenReadySignal();
   await chrome.offscreen.createDocument({
     url: path,
     reasons: ['USER_MEDIA'],
     justification: 'Recording the active tab for offline viewing'
   });
+  // Time-boxed so a missed signal degrades to the old behaviour instead of hanging.
+  await Promise.race([ready, new Promise((r) => setTimeout(r, 3000))]);
 }
 
 chrome.action.onClicked.addListener(async (tab) => {
@@ -71,6 +93,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       await chrome.storage.session.set({ recordingState: 'idle' });
       await chrome.action.setBadgeText({ text: '' });
     })();
+  } else if (msg.type === 'CLI_CLEANUP') {
+    // The CLI has finished saving the file; the offscreen doc can release the blob.
+    chrome.runtime.sendMessage({ type: 'CLEANUP_OFFSCREEN' }).catch(() => {});
+  }
+});
+
+// Relay capture status from the offscreen document out to the active tab, so the
+// CLI's content-script bridge can observe whether recording actually started.
+chrome.runtime.onMessage.addListener(async (msg) => {
+  if (msg.type === 'CAPTURE_STATUS') {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tabs.length > 0) {
+      chrome.tabs.sendMessage(tabs[0].id, { type: 'EXT_STATUS', status: msg.status, error: msg.error });
+    }
   }
 });
 
