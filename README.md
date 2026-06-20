@@ -31,6 +31,13 @@ If you skip this step, Widevine DRM will block the capture and your recording wi
 6. When finished, click the extension icon again. The file `RTS_Recording.webm` will automatically download.
 
 ### 4. Record a Movie (Automated CLI Mode)
+
+#### Pre-built bundles (Windows / Apple Silicon)
+The easiest way to get the CLI is from the [Releases page](../../releases): download `rts-drm-recorder-windows-x64.zip` or `rts-drm-recorder-macos-arm64.zip`, unzip it, and double-click `run.cmd` (Windows) or `run.command` (macOS). These bundles include the extension, the CLI, and its dependencies — you only need **Google Chrome** and **Node.js** installed, plus hardware acceleration turned off (see step 1). See `USAGE.txt` inside the bundle for a quick start.
+
+> Maintainers: a release is built automatically when a `vX.Y.Z` tag is pushed (see [.github/workflows/release.yml](.github/workflows/release.yml)).
+
+#### From source
 If you prefer not to click manually, you can use the automated CLI script built with Node.js and Playwright. It will automatically launch Chrome, inject the extension, click play, wait for the exact duration of the movie, and save the final file.
 
 1. Install dependencies:
