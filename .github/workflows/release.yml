@@ -44,7 +44,7 @@ jobs:
         if: runner.os == 'macOS'
         run: ditto -c -k --sequesterRsrc --keepParent dist/rts-drm-recorder rts-drm-recorder-${{ matrix.target }}.zip
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: rts-drm-recorder-${{ matrix.target }}
           path: rts-drm-recorder-${{ matrix.target }}.zip
